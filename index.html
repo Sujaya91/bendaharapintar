@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bendahara Pintar</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Icons (Lucide) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Libraries for Excel, PDF -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class', // Mengaktifkan Dark Mode berbasis class
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0f172a', // Slate 900
+                        secondary: '#10b981', // Emerald 500
+                        accent: '#6366f1', // Indigo 500
+                        darkbg: '#1e293b', // Slate 800 for dark mode cards
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; transition: background-color 0.3s, color 0.3s; }
+        
+        /* Hide scrollbar for clean UI but allow scroll */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .nav-item.active { color: #10b981; font-weight: 600; }
+        .nav-item.active svg { stroke: #10b981; stroke-width: 2.5px; }
+
+        /* Signature Canvas */
+        canvas.signature-pad { background-color: #fff; border: 2px dashed #cbd5e1; border-radius: 0.5rem; cursor: crosshair; touch-action: none; width: 100%; }
+        
+        /* Hidden Print Container */
+        #print-container { position: fixed; top: -9999px; left: -9999px; width: 210mm; min-height: 297mm; background: white; padding: 20mm; color: black; z-index: -1; }
+
+        /* Animations */
+        .fade-exit { opacity: 0; pointer-events: none; transition: opacity 0.5s ease; }
+        
+        /* Modal Lightbox */
+        #lightbox { transition: opacity 0.3s ease; }
+        #lightbox:not(.hidden) { display: flex; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 pb-24">
+
+    <!-- LOGIN SCREEN (Overlay) -->
+    <section id="view-login" class="fixed inset-0 z-[100] bg-slate-100 dark:bg-slate-900 flex flex-col items-center justify-center p-6 transition-opacity duration-500">
+        <div class="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl w-full max-w-sm border border-slate-200 dark:border-slate-700">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-2xl mb-4 shadow-lg">
+                    <i data-lucide="wallet" class="w-8 h-8 text-secondary"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">
+                    Bendahara<span class="text-secondary">Pintar</span>
+                </h1>
+                <p class="text-sm text-slate-400 mt-1">Sistem Manajemen Keuangan</p>
+            </div>
+
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Username</label>
+                    <div class="relative">
+                        <i data-lucide="user" class="absolute left-3 top-3 w-5 h-5 text-slate-400"></i>
+                        <input type="text" id="login-user" class="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-secondary dark:text-white transition-colors" placeholder="Masukkan username">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Password</label>
+                    <div class="relative">
+                        <i data-lucide="lock" class="absolute left-3 top-3 w-5 h-5 text-slate-400"></i>
+                        <input type="password" id="login-pass" class="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-secondary dark:text-white transition-colors" placeholder="Masukkan password">
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-primary hover:bg-slate-800 text-white font-bold py-3 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2">
+                    Masuk Aplikasi <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </form>
+
+            <div class="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700">
+                <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg flex items-start gap-3">
+                    <i data-lucide="info" class="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0"></i>
+                    <div class="text-xs text-blue-700 dark:text-blue-300">
+                        <p class="font-bold mb-1">Panduan Masuk:</p>
+                        <p>Untuk pengguna baru, gunakan akun default:</p>
+                        <ul class="mt-1 list-disc pl-3 opacity-90">
+                            <li>Username: <strong>admin</strong></li>
+                            <li>Password: <strong>admin</strong></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-8 text-center">
+             <button onclick="toggleTheme()" class="p-2 bg-white dark:bg-slate-800 rounded-full shadow-sm text-slate-400 hover:text-secondary transition">
+                <i id="login-theme-icon" data-lucide="moon" class="w-5 h-5"></i>
+            </button>
+        </div>
+    </section>
+
+    <!-- LIGHTBOX MODAL (For Image Preview) -->
+    <div id="lightbox" class="fixed inset-0 z-[60] bg-black/90 hidden items-center justify-center p-4 opacity-0" onclick="closeLightbox()">
+        <div class="relative max-w-3xl w-full max-h-screen flex flex-col items-center">
+            <button onclick="closeLightbox()" class="absolute -top-12 right-0 text-white p-2 hover:bg-white/20 rounded-full">
+                <i data-lucide="x" class="w-8 h-8"></i>
+            </button>
+            <img id="lightbox-img" src="" class="max-w-full max-h-[80vh] rounded-lg shadow-2xl object-contain">
+            <p id="lightbox-caption" class="text-white text-center mt-4 text-sm font-medium"></p>
+        </div>
+    </div>
+
+    <!-- APP WRAPPER -->
+    <div id="main-app-wrapper" class="hidden opacity-0 transition-opacity duration-500">
+        
+        <!-- HEADER -->
+        <header class="bg-primary text-white sticky top-0 z-40 shadow-lg transition-all duration-300 dark:bg-slate-950">
+            <div class="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
+                <div>
+                    <h1 class="text-lg font-bold tracking-wide flex items-center gap-2">
+                        <i data-lucide="wallet" class="w-6 h-6 text-secondary"></i>
+                        Bendahara<span class="text-secondary">Pintar</span>
+                    </h1>
+                    <p class="text-xs text-slate-400" id="header-instansi">Instansi Belum Diatur</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="toggleTheme()" class="p-2 bg-slate-800 rounded-full hover:bg-slate-700 transition border border-slate-700">
+                        <i id="theme-icon" data-lucide="moon" class="w-4 h-4 text-yellow-300"></i>
+                    </button>
+                    <button onclick="logout()" class="p-2 bg-slate-800 rounded-full hover:bg-rose-600 transition border border-slate-700 text-rose-400 hover:text-white" title="Keluar">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN CONTENT CONTAINER -->
+        <main id="app-content" class="max-w-3xl mx-auto p-4 space-y-6 min-h-screen">
+            
+            <!-- SECTION: DASHBOARD -->
+            <section id="view-dashboard" class="view-section animate-fade-in">
+                
+                <!-- Dashboard Filter Header -->
+                <div class="flex justify-between items-center mb-4 px-1">
+                    <h3 class="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                        <i data-lucide="bar-chart-2" class="w-4 h-4"></i> Ringkasan
+                    </h3>
+                    <div class="relative">
+                        <select id="dash-filter" onchange="renderDashboard()" class="appearance-none pl-3 pr-8 py-1.5 text-xs font-semibold rounded-lg border bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-accent">
+                            <option value="month">Bulan Ini</option>
+                            <option value="all">Semua Waktu</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="absolute right-2 top-2 w-3 h-3 text-slate-400 pointer-events-none"></i>
+                    </div>
+                </div>
+
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <!-- Saldo (Always Total) -->
+                    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden transition-colors">
+                        <div class="absolute right-0 top-0 p-4 opacity-10">
+                            <i data-lucide="credit-card" class="w-16 h-16 text-blue-600 dark:text-blue-400"></i>
+                        </div>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 font-medium">Saldo Saat Ini</p>
+                        <h2 class="text-2xl font-bold text-slate-800 dark:text-white mt-1" id="dash-saldo">Rp 0</h2>
+                        <p class="text-[10px] text-slate-400 mt-1">*Selalu total akumulasi</p>
+                    </div>
+                    <!-- Masuk -->
+                    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-400">
+                                <i data-lucide="arrow-down-left" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-500 dark:text-slate-400" id="label-masuk">Pemasukan (Bulan Ini)</p>
+                                <h3 class="text-lg font-semibold text-emerald-600 dark:text-emerald-400" id="dash-masuk">Rp 0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Keluar -->
+                    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg text-rose-600 dark:text-rose-400">
+                                <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-500 dark:text-slate-400" id="label-keluar">Pengeluaran (Bulan Ini)</p>
+                                <h3 class="text-lg font-semibold text-rose-600 dark:text-rose-400" id="dash-keluar">Rp 0</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="grid grid-cols-2 gap-4 mt-8">
+                    <button onclick="navigate('input', 'Masuk')" class="group bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white p-6 rounded-2xl shadow-lg shadow-emerald-200 dark:shadow-none flex flex-col items-center justify-center gap-3 transition transform active:scale-95 border border-transparent dark:border-slate-600">
+                        <div class="bg-white/20 p-3 rounded-full group-hover:scale-110 transition">
+                            <i data-lucide="plus-circle" class="w-8 h-8"></i>
+                        </div>
+                        <span class="font-bold text-base">Tambah Pemasukan</span>
+                    </button>
+                    <button onclick="navigate('input', 'Keluar')" class="group bg-rose-500 hover:bg-rose-600 dark:bg-rose-700 dark:hover:bg-rose-600 text-white p-6 rounded-2xl shadow-lg shadow-rose-200 dark:shadow-none flex flex-col items-center justify-center gap-3 transition transform active:scale-95 border border-transparent dark:border-slate-600">
+                        <div class="bg-white/20 p-3 rounded-full group-hover:scale-110 transition">
+                            <i data-lucide="minus-circle" class="w-8 h-8"></i>
+                        </div>
+                        <span class="font-bold text-base">Tambah Pengeluaran</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- SECTION: INPUT TRANSAKSI -->
+            <section id="view-input" class="view-section hidden">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6 transition-colors">
+                    <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
+                        <i data-lucide="pen-tool" class="w-5 h-5 text-accent"></i> Input Transaksi
+                    </h2>
+                    
+                    <form id="transaction-form" onsubmit="handleTransactionSubmit(event)">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Tanggal</label>
+                                <input type="date" id="inp-date" required class="w-full p-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/50 dark:text-white transition-colors">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Jenis Transaksi</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="type" value="Masuk" class="peer sr-only" checked>
+                                        <div class="text-center p-3 rounded-xl border border-slate-200 dark:border-slate-600 dark:text-slate-300 peer-checked:bg-emerald-100 peer-checked:text-emerald-700 peer-checked:border-emerald-500 dark:peer-checked:bg-emerald-900/50 dark:peer-checked:text-emerald-400 dark:peer-checked:border-emerald-500 transition">
+                                            Pemasukan
+                                        </div>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="type" value="Keluar" class="peer sr-only">
+                                        <div class="text-center p-3 rounded-xl border border-slate-200 dark:border-slate-600 dark:text-slate-300 peer-checked:bg-rose-100 peer-checked:text-rose-700 peer-checked:border-rose-500 dark:peer-checked:bg-rose-900/50 dark:peer-checked:text-rose-400 dark:peer-checked:border-rose-500 transition">
+                                            Pengeluaran
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Uraian / Keterangan</label>
+                                <textarea id="inp-desc" required rows="3" placeholder="Contoh: Pembelian ATK..." class="w-full p-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/50 dark:text-white transition-colors"></textarea>
+                                
+                                <!-- Quick Tags -->
+                                <div class="flex gap-2 overflow-x-auto py-2 no-scrollbar mt-1">
+                                    <button type="button" onclick="addDescTag('Konsumsi')" class="text-[10px] bg-slate-100 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 px-2 py-1 rounded-full border dark:border-slate-600 hover:bg-slate-200 whitespace-nowrap">+ Konsumsi</button>
+                                    <button type="button" onclick="addDescTag('ATK')" class="text-[10px] bg-slate-100 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 px-2 py-1 rounded-full border dark:border-slate-600 hover:bg-slate-200 whitespace-nowrap">+ ATK</button>
+                                    <button type="button" onclick="addDescTag('Transport')" class="text-[10px] bg-slate-100 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 px-2 py-1 rounded-full border dark:border-slate-600 hover:bg-slate-200 whitespace-nowrap">+ Transport</button>
+                                    <button type="button" onclick="addDescTag('Honor')" class="text-[10px] bg-slate-100 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 px-2 py-1 rounded-full border dark:border-slate-600 hover:bg-slate-200 whitespace-nowrap">+ Honor</button>
+                                    <button type="button" onclick="addDescTag('Listrik')" class="text-[10px] bg-slate-100 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 px-2 py-1 rounded-full border dark:border-slate-600 hover:bg-slate-200 whitespace-nowrap">+ Listrik</button>
+                                    <button type="button" onclick="addDescTag('Kas')" class="text-[10px] bg-slate-100 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 px-2 py-1 rounded-full border dark:border-slate-600 hover:bg-slate-200 whitespace-nowrap">+ Kas</button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Nominal (Rp)</label>
+                                <input type="number" id="inp-amount" required min="1" placeholder="0" class="w-full p-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/50 font-mono text-lg dark:text-white transition-colors">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Bukti Foto (Opsional)</label>
+                                <input type="file" id="inp-proof" accept="image/*" class="w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 dark:file:bg-slate-700 dark:file:text-slate-200 hover:file:bg-slate-200 dark:hover:file:bg-slate-600 transition-colors">
+                                <p class="text-xs text-orange-500 mt-1">*Maksimal kompresi otomatis diterapkan agar penyimpanan tidak penuh.</p>
+                            </div>
+                        </div>
+
+                        <button id="btn-submit" type="submit" class="w-full mt-6 bg-primary dark:bg-slate-700 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-slate-800 dark:hover:bg-slate-600 transition transform active:scale-95 flex items-center justify-center gap-2">
+                            <i data-lucide="save" class="w-5 h-5"></i> Simpan Transaksi
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- SECTION: REKAP & LAPORAN -->
+            <section id="view-report" class="view-section hidden">
+                <!-- Filter & Search -->
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 mb-4 space-y-3 transition-colors">
+                    <div class="flex gap-2">
+                        <div class="relative flex-1">
+                            <i data-lucide="search" class="absolute left-3 top-3 w-4 h-4 text-slate-400"></i>
+                            <input type="text" id="filter-search" placeholder="Cari uraian..." onkeyup="renderReport()" class="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:border-accent dark:text-white transition-colors">
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="date" id="filter-start" onchange="renderReport()" class="w-full p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs dark:text-white transition-colors">
+                        <span class="self-center text-slate-400">-</span>
+                        <input type="date" id="filter-end" onchange="renderReport()" class="w-full p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs dark:text-white transition-colors">
+                    </div>
+                </div>
+
+                <!-- Export Buttons -->
+                <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar mb-4">
+                    <button onclick="exportData('png')" class="flex items-center gap-1 bg-orange-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shadow-sm hover:bg-orange-600">
+                        <i data-lucide="image" class="w-3 h-3"></i> PNG (Resmi)
+                    </button>
+                    <button onclick="exportData('pdf')" class="flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shadow-sm hover:bg-red-600">
+                        <i data-lucide="file-text" class="w-3 h-3"></i> PDF (Resmi)
+                    </button>
+                    <button onclick="exportData('excel')" class="flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shadow-sm hover:bg-green-700">
+                        <i data-lucide="sheet" class="w-3 h-3"></i> Excel
+                    </button>
+                </div>
+
+                <!-- Table Container -->
+                <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden transition-colors">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-slate-600 dark:text-slate-300">
+                            <thead class="text-xs text-slate-700 dark:text-slate-200 uppercase bg-slate-50 dark:bg-slate-700 border-b dark:border-slate-600">
+                                <tr>
+                                    <th class="px-4 py-3 text-center">No</th>
+                                    <th class="px-4 py-3 min-w-[100px]">Tanggal</th>
+                                    <th class="px-4 py-3">Uraian</th>
+                                    <th class="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">Masuk</th>
+                                    <th class="px-4 py-3 text-right text-rose-600 dark:text-rose-400">Keluar</th>
+                                    <th class="px-4 py-3 text-right">Saldo</th>
+                                    <th class="px-4 py-3 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-body" class="divide-y divide-slate-100 dark:divide-slate-700">
+                                <!-- JS Generated Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: ARSIP / GALERI -->
+            <section id="view-archive" class="view-section hidden">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <i data-lucide="image" class="w-5 h-5 text-accent"></i> Galeri Bukti
+                </h2>
+                <div id="gallery-container" class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <!-- JS Generated Images -->
+                </div>
+                <p id="gallery-empty" class="text-center text-slate-400 dark:text-slate-500 text-sm mt-10 hidden">Belum ada bukti transaksi yang diunggah.</p>
+            </section>
+
+            <!-- SECTION: PENGATURAN -->
+            <section id="view-settings" class="view-section hidden">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6 space-y-8 transition-colors">
+                    
+                    <!-- Pengaturan Akun -->
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-3 border-b dark:border-slate-700 pb-2">Pengaturan Akun</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Username Baru</label>
+                                <input type="text" id="set-username" placeholder="Username" class="input-field w-full p-2 border dark:border-slate-600 rounded bg-transparent dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Password Baru</label>
+                                <input type="text" id="set-password" placeholder="Password" class="input-field w-full p-2 border dark:border-slate-600 rounded bg-transparent dark:text-white">
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-orange-500 mt-1 italic">*Biarkan kosong jika tidak ingin mengubah akun.</p>
+                    </div>
+
+                    <!-- Identitas Instansi -->
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-3 border-b dark:border-slate-700 pb-2">Identitas Instansi & Cetak</h3>
+                        <div class="grid grid-cols-1 gap-4">
+                            <input type="text" id="set-instansi" placeholder="Nama Instansi" class="input-field w-full p-2 border dark:border-slate-600 rounded bg-transparent dark:text-white">
+                            <input type="text" id="set-tempat" placeholder="Tempat (Kota)" class="input-field w-full p-2 border dark:border-slate-600 rounded bg-transparent dark:text-white">
+                            <div class="grid grid-cols-2 gap-4">
+                                <input type="text" id="set-ketua" placeholder="Nama Ketua" class="input-field w-full p-2 border dark:border-slate-600 rounded bg-transparent dark:text-white">
+                                <input type="text" id="set-bendahara" placeholder="Nama Bendahara" class="input-field w-full p-2 border dark:border-slate-600 rounded bg-transparent dark:text-white">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tanda Tangan Digital -->
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-3 border-b dark:border-slate-700 pb-2">Tanda Tangan Digital</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Ketua -->
+                            <div class="space-y-2">
+                                <p class="text-sm font-semibold dark:text-slate-300">TTD Ketua</p>
+                                <canvas id="pad-ketua" class="signature-pad w-full h-32"></canvas>
+                                <div class="flex gap-2">
+                                    <button onclick="clearPad('ketua')" class="text-xs bg-slate-200 dark:bg-slate-700 dark:text-slate-300 px-2 py-1 rounded">Hapus</button>
+                                </div>
+                            </div>
+                            <!-- Bendahara -->
+                            <div class="space-y-2">
+                                <p class="text-sm font-semibold dark:text-slate-300">TTD Bendahara</p>
+                                <canvas id="pad-bendahara" class="signature-pad w-full h-32"></canvas>
+                                <div class="flex gap-2">
+                                    <button onclick="clearPad('bendahara')" class="text-xs bg-slate-200 dark:bg-slate-700 dark:text-slate-300 px-2 py-1 rounded">Hapus</button>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="saveSettings()" class="mt-4 bg-accent text-white px-4 py-2 rounded-lg text-sm w-full md:w-auto shadow">Simpan Pengaturan & TTD</button>
+                    </div>
+
+                    <!-- Google Sheet Sync -->
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-3 border-b dark:border-slate-700 pb-2">Sinkronisasi Google Sheet</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">URL Web App (Apps Script)</label>
+                                <input type="url" id="set-webapp-url" placeholder="https://script.google.com/macros/s/..." class="w-full p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded text-xs font-mono dark:text-white">
+                            </div>
+                            
+                            <button onclick="syncToGoogleSheet(true)" class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg flex items-center justify-center gap-2 transition">
+                                <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sinkronisasi Sekarang
+                            </button>
+
+                            <div class="bg-blue-50 dark:bg-slate-900 dark:border dark:border-slate-700 p-4 rounded-lg text-sm text-blue-800 dark:text-blue-300 space-y-2">
+                                <p class="font-semibold flex items-center gap-2"><i data-lucide="info" class="w-4 h-4"></i> Panduan Kode Apps Script (Terbaru):</p>
+                                <ol class="list-decimal pl-4 space-y-1 text-xs">
+                                    <li>Buka Google Sheet > Ekstensi > Apps Script.</li>
+                                    <li>Hapus semua kode lama, paste kode di bawah ini.</li>
+                                    <li>Klik <strong>Deploy > New Deployment</strong> (WAJIB Deploy Baru).</li>
+                                    <li>Pilih type: <strong>Web App</strong>.</li>
+                                    <li>Who has access: <strong>Anyone</strong> (Wajib).</li>
+                                    <li>Copy URL Web App baru dan paste di kolom input di atas.</li>
+                                </ol>
+                                <textarea readonly class="w-full h-40 text-[10px] font-mono bg-white dark:bg-slate-800 p-2 rounded border dark:border-slate-600 mt-2 focus:ring-2 focus:ring-blue-300 dark:text-slate-300">
+function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = JSON.parse(e.postData.contents);
+  
+  // Reset Sheet & Set Header Lengkap
+  sheet.clear();
+  var headers = ["No", "Tanggal", "Uraian", "Masuk", "Keluar", "Saldo"];
+  sheet.appendRow(headers);
+  // Format Header Bold
+  sheet.getRange(1, 1, 1, 6).setFontWeight("bold").setBackground("#f3f4f6");
+  
+  // Format Data
+  if (data.rows && data.rows.length > 0) {
+    // Batch Insert (Lebih Cepat)
+    sheet.getRange(2, 1, data.rows.length, 6).setValues(data.rows);
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({status: "success", count: data.rows.length}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+                                </textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Management -->
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-3 border-b dark:border-slate-700 pb-2">Manajemen Data Lokal</h3>
+                        <div class="flex flex-col gap-3">
+                            <button onclick="backupData()" class="flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-600 p-3 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
+                                <i data-lucide="download" class="w-4 h-4"></i> Backup Data (JSON)
+                            </button>
+                            <div class="relative">
+                                <input type="file" id="import-file" accept=".json" onchange="importData(this)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                                <button class="w-full flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-600 p-3 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
+                                    <i data-lucide="upload" class="w-4 h-4"></i> Restore Data (JSON)
+                                </button>
+                            </div>
+                            <button onclick="resetData()" class="flex items-center justify-center gap-2 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 p-3 rounded-lg hover:bg-rose-200 dark:hover:bg-rose-900/50">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i> Reset Semua Data
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+        </main>
+
+        <!-- STICKY BOTTOM NAVIGATION -->
+        <nav class="fixed bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50 transition-colors">
+            <div class="max-w-3xl mx-auto flex justify-around items-center h-16 px-2">
+                <button onclick="navigate('dashboard')" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition active">
+                    <i data-lucide="layout-dashboard" class="w-6 h-6 mb-1"></i>
+                    <span class="text-[10px]">Home</span>
+                </button>
+                <button onclick="navigate('input')" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition">
+                    <i data-lucide="plus-square" class="w-6 h-6 mb-1"></i>
+                    <span class="text-[10px]">Input</span>
+                </button>
+                <button onclick="navigate('report')" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition">
+                    <i data-lucide="file-bar-chart" class="w-6 h-6 mb-1"></i>
+                    <span class="text-[10px]">Laporan</span>
+                </button>
+                <button onclick="navigate('archive')" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition">
+                    <i data-lucide="image" class="w-6 h-6 mb-1"></i>
+                    <span class="text-[10px]">Arsip</span>
+                </button>
+                <button onclick="navigate('settings')" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition">
+                    <i data-lucide="settings" class="w-6 h-6 mb-1"></i>
+                    <span class="text-[10px]">Setelan</span>
+                </button>
+            </div>
+        </nav>
+    </div>
+
+    <!-- HIDDEN PRINT TEMPLATE (High Precision) -->
+    <div id="print-container">
+        <!-- Content injected by JS -->
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // --- GLOBAL STATE ---
+        const DB_KEY = 'bendahara_data';
+        const SETTINGS_KEY = 'bendahara_settings';
+        const THEME_KEY = 'bendahara_theme';
+        
+        let transactions = [];
+        let editingId = null; 
+        
+        // Default settings include username/password
+        let settings = {
+            username: 'admin',
+            password: 'admin',
+            instansi: 'Organisasi Pemuda',
+            tempat: 'Jakarta',
+            ketua: '',
+            bendahara: '',
+            ttd_ketua: null,
+            ttd_bendahara: null,
+            webapp_url: ''
+        };
+
+        // Signature Pads
+        let padKetua, padBendahara;
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            loadData();
+            initTheme(); 
+            initSignaturePads();
+            
+            // NOTE: We do NOT render dashboard immediately. We wait for login.
+            // But we need to prep date inputs for later.
+            const today = new Date().toISOString().split('T')[0];
+            const inpDate = document.getElementById('inp-date');
+            if (inpDate) inpDate.value = today;
+            
+            const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+            const filterStart = document.getElementById('filter-start');
+            const filterEnd = document.getElementById('filter-end');
+            
+            if (filterStart) filterStart.value = firstDay;
+            if (filterEnd) filterEnd.value = today;
+        });
+
+        // --- AUTHENTICATION LOGIC ---
+        function handleLogin(e) {
+            e.preventDefault();
+            const user = document.getElementById('login-user').value;
+            const pass = document.getElementById('login-pass').value;
+
+            if (user === settings.username && pass === settings.password) {
+                // Success Login
+                const loginScreen = document.getElementById('view-login');
+                const appWrapper = document.getElementById('main-app-wrapper');
+                
+                // Animation fade out login
+                loginScreen.classList.add('fade-exit');
+                
+                setTimeout(() => {
+                    loginScreen.classList.add('hidden');
+                    appWrapper.classList.remove('hidden');
+                    // Small delay to allow display:block to apply before opacity transition
+                    setTimeout(() => {
+                        appWrapper.classList.remove('opacity-0');
+                    }, 50);
+                    
+                    renderDashboard(); // Render data only after login
+                }, 500);
+
+            } else {
+                alert('Username atau Password salah!');
+            }
+        }
+
+        function logout() {
+            if(confirm('Apakah Anda yakin ingin keluar?')) {
+                location.reload(); // Simple and secure way to clear session state for this architecture
+            }
+        }
+
+        // --- THEME LOGIC ---
+        function initTheme() {
+            const savedTheme = localStorage.getItem(THEME_KEY);
+            const isDark = savedTheme === 'dark';
+            
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            updateThemeIcon();
+        }
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+            updateThemeIcon();
+        }
+
+        function updateThemeIcon() {
+            const icons = document.querySelectorAll('#theme-icon, #login-theme-icon');
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            icons.forEach(icon => {
+                if (isDark) {
+                    icon.setAttribute('data-lucide', 'sun');
+                    icon.classList.remove('text-slate-600');
+                    icon.classList.add('text-yellow-300');
+                    if(icon.id === 'login-theme-icon') icon.classList.add('text-yellow-500');
+                } else {
+                    icon.setAttribute('data-lucide', 'moon');
+                    icon.classList.remove('text-yellow-300');
+                    icon.classList.remove('text-yellow-500');
+                    icon.classList.add('text-slate-300');
+                    if(icon.id === 'login-theme-icon') icon.classList.add('text-slate-400');
+                }
+            });
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        // --- NAVIGATION ---
+        function navigate(viewId, param = null) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            const map = { 'dashboard':0, 'input':1, 'report':2, 'archive':3, 'settings':4 };
+            document.querySelectorAll('.nav-item')[map[viewId] || 0].classList.add('active');
+            
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            if (viewId === 'input') {
+                if (param === 'EDIT_MODE') {
+                    // Do nothing
+                } else {
+                    resetInputForm();
+                    if (param) {
+                        const radios = document.getElementsByName('type');
+                        radios.forEach(r => {
+                            if (r.value === param) r.checked = true;
+                        });
+                    }
+                }
+            } else if (viewId === 'report') {
+                renderReport();
+            } else if (viewId === 'archive') {
+                renderGallery();
+            } else if (viewId === 'dashboard') {
+                renderDashboard();
+            } else if (viewId === 'settings') {
+                loadSettingsForm();
+                setTimeout(resizeSignaturePads, 100);
+            }
+            
+            window.scrollTo(0,0);
+        }
+
+        // --- INPUT FORM HELPER ---
+        function resetInputForm() {
+            editingId = null;
+            document.getElementById('transaction-form').reset();
+            document.getElementById('inp-date').value = new Date().toISOString().split('T')[0];
+            const btn = document.getElementById('btn-submit');
+            btn.innerHTML = '<i data-lucide="save" class="w-5 h-5"></i> Simpan Transaksi';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+        
+        // Quick Desc Tag Helper
+        function addDescTag(tag) {
+            const desc = document.getElementById('inp-desc');
+            if(desc.value) {
+                desc.value += `, ${tag}`;
+            } else {
+                desc.value = tag;
+            }
+        }
+
+        function editTransaction(id) {
+            const tx = transactions.find(t => t.id === id);
+            if (!tx) return;
+
+            editingId = id;
+            document.getElementById('inp-date').value = tx.date;
+            document.getElementById('inp-desc').value = tx.desc;
+            document.getElementById('inp-amount').value = tx.amount;
+            
+            const radios = document.getElementsByName('type');
+            radios.forEach(r => {
+                if (r.value === tx.type) r.checked = true;
+            });
+
+            const btn = document.getElementById('btn-submit');
+            btn.innerHTML = '<i data-lucide="edit-3" class="w-5 h-5"></i> Update Transaksi';
+            
+            navigate('input', 'EDIT_MODE');
+        }
+
+        // --- DATA MANAGEMENT ---
+        function loadData() {
+            try {
+                const storedData = localStorage.getItem(DB_KEY);
+                const storedSettings = localStorage.getItem(SETTINGS_KEY);
+                
+                if (storedData) {
+                    const parsed = JSON.parse(storedData);
+                    if (Array.isArray(parsed)) transactions = parsed;
+                }
+                
+                if (storedSettings) {
+                    const loadedSettings = JSON.parse(storedSettings);
+                    settings = { ...settings, ...loadedSettings };
+                }
+                
+                const instansiHeader = document.getElementById('header-instansi');
+                if (instansiHeader) instansiHeader.innerText = settings.instansi;
+                
+            } catch (e) {
+                console.error("Data corruption detected. Resetting...", e);
+                localStorage.removeItem(DB_KEY);
+                localStorage.removeItem(SETTINGS_KEY);
+                alert("Terdeteksi data rusak dari versi sebelumnya. Aplikasi telah direset.");
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem(DB_KEY, JSON.stringify(transactions));
+            renderDashboard(); 
+        }
+
+        function saveSettingsToStorage() {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+            document.getElementById('header-instansi').innerText = settings.instansi;
+            alert('Pengaturan disimpan! Jika username/password diubah, gunakan yang baru saat login berikutnya.');
+        }
+
+        // --- CORE LOGIC: TRANSACTIONS ---
+        async function handleTransactionSubmit(e) {
+            e.preventDefault();
+            
+            const date = document.getElementById('inp-date').value;
+            const type = document.querySelector('input[name="type"]:checked').value;
+            const desc = document.getElementById('inp-desc').value;
+            const amount = parseFloat(document.getElementById('inp-amount').value);
+            const fileInput = document.getElementById('inp-proof');
+            
+            let proofImage = null;
+
+            if (fileInput.files.length > 0) {
+                try {
+                    proofImage = await compressImage(fileInput.files[0]);
+                } catch (err) {
+                    console.error("Image error", err);
+                    alert("Gagal memproses gambar");
+                    return;
+                }
+            }
+
+            if (editingId) {
+                const index = transactions.findIndex(t => t.id === editingId);
+                if (index !== -1) {
+                    transactions[index].date = date;
+                    transactions[index].type = type;
+                    transactions[index].desc = desc;
+                    transactions[index].amount = amount;
+                    if (proofImage) {
+                        transactions[index].proof = proofImage;
+                    }
+                    alert('Transaksi Berhasil Diperbarui!');
+                }
+                editingId = null;
+            } else {
+                const newTx = {
+                    id: Date.now(),
+                    date,
+                    type,
+                    desc,
+                    amount,
+                    proof: proofImage
+                };
+                transactions.push(newTx);
+                alert('Transaksi Berhasil Disimpan!');
+            }
+
+            transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            saveData();
+            
+            // AUTO SYNC TRIGGER
+            if (settings.webapp_url) {
+                console.log('Triggering auto-sync...');
+                syncToGoogleSheet(false); // False means silent/auto mode
+            }
+
+            resetInputForm();
+            navigate('dashboard');
+        }
+
+        function deleteTransaction(id) {
+            if(confirm('Hapus transaksi ini? Data dan foto bukti akan hilang permanen.')) {
+                transactions = transactions.filter(t => t.id !== id);
+                saveData();
+                
+                // AUTO SYNC TRIGGER
+                if (settings.webapp_url) {
+                    console.log('Triggering auto-sync (delete)...');
+                    syncToGoogleSheet(false); // False means silent/auto mode
+                }
+
+                if (!document.getElementById('view-report').classList.contains('hidden')) renderReport();
+                if (!document.getElementById('view-archive').classList.contains('hidden')) renderGallery();
+            }
+        }
+
+        // --- DASHBOARD RENDERING ---
+        function renderDashboard() {
+            const filterEl = document.getElementById('dash-filter');
+            const filterType = filterEl ? filterEl.value : 'month';
+            const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
+            
+            let totalMasuk = 0;
+            let totalKeluar = 0;
+            let totalSaldo = 0;
+            
+            // Calculate Global Saldo (Always All Time)
+            transactions.forEach(t => {
+                if (t.type === 'Masuk') totalSaldo += t.amount;
+                else totalSaldo -= t.amount;
+            });
+
+            // Calculate Display In/Out based on filter
+            transactions.forEach(t => {
+                let include = true;
+                if (filterType === 'month') {
+                    if (!t.date.startsWith(currentMonth)) include = false;
+                }
+                
+                if (include) {
+                    if (t.type === 'Masuk') totalMasuk += t.amount;
+                    else totalKeluar += t.amount;
+                }
+            });
+
+            // Update Labels
+            const labelSuffix = filterType === 'month' ? '(Bulan Ini)' : '(Semua)';
+            document.getElementById('label-masuk').innerText = `Pemasukan ${labelSuffix}`;
+            document.getElementById('label-keluar').innerText = `Pengeluaran ${labelSuffix}`;
+
+            // Update Values
+            document.getElementById('dash-saldo').innerText = formatRupiah(totalSaldo);
+            document.getElementById('dash-masuk').innerText = formatRupiah(totalMasuk);
+            document.getElementById('dash-keluar').innerText = formatRupiah(totalKeluar);
+        }
+
+        // --- REPORT RENDERING ---
+        function renderReport() {
+            const tbody = document.getElementById('report-body');
+            tbody.innerHTML = '';
+            
+            const search = document.getElementById('filter-search').value.toLowerCase();
+            const start = document.getElementById('filter-start').value;
+            const end = document.getElementById('filter-end').value;
+
+            let filtered = transactions.filter(t => {
+                const matchSearch = t.desc.toLowerCase().includes(search);
+                const matchDate = (!start || t.date >= start) && (!end || t.date <= end);
+                return matchSearch && matchDate;
+            });
+
+            filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            let runningBalance = 0;
+            if (start) {
+                transactions.forEach(t => {
+                    if (t.date < start) {
+                        runningBalance += (t.type === 'Masuk' ? t.amount : -t.amount);
+                    }
+                });
+            }
+
+            if (start && filtered.length > 0) {
+                 const row = `
+                    <tr class="bg-yellow-50 dark:bg-yellow-900/20 font-semibold italic text-slate-500 dark:text-slate-400">
+                        <td colspan="5" class="px-4 py-2 text-center">Saldo Awal (Sebelum ${start})</td>
+                        <td class="px-4 py-2 text-right">${formatRupiah(runningBalance)}</td>
+                        <td></td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            }
+
+            filtered.forEach((t, index) => {
+                if (t.type === 'Masuk') runningBalance += t.amount;
+                else runningBalance -= t.amount;
+
+                const tr = document.createElement('tr');
+                tr.className = "bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors";
+                tr.innerHTML = `
+                    <td class="px-4 py-3 text-center">${index + 1}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">${formatDateIndo(t.date)}</td>
+                    <td class="px-4 py-3 max-w-xs truncate">${t.desc}</td>
+                    <td class="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">${t.type === 'Masuk' ? formatRupiah(t.amount) : '-'}</td>
+                    <td class="px-4 py-3 text-right text-rose-600 dark:text-rose-400">${t.type === 'Keluar' ? formatRupiah(t.amount) : '-'}</td>
+                    <td class="px-4 py-3 text-right font-medium dark:text-slate-200">${formatRupiah(runningBalance)}</td>
+                    <td class="px-4 py-3 text-center flex justify-center gap-2">
+                        <button onclick="editTransaction(${t.id})" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300" title="Edit"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+                        <button onclick="deleteTransaction(${t.id})" class="text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300" title="Hapus"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        // --- LIGHTBOX LOGIC ---
+        function openLightbox(imgSrc, caption) {
+            document.getElementById('lightbox-img').src = imgSrc;
+            document.getElementById('lightbox-caption').innerText = caption;
+            
+            const box = document.getElementById('lightbox');
+            box.classList.remove('hidden');
+            // Timeout to allow display:flex to apply before opacity transition
+            setTimeout(() => { box.classList.remove('opacity-0'); }, 10);
+        }
+
+        function closeLightbox() {
+            const box = document.getElementById('lightbox');
+            box.classList.add('opacity-0');
+            setTimeout(() => { 
+                box.classList.add('hidden'); 
+                document.getElementById('lightbox-img').src = "";
+            }, 300);
+        }
+
+        // --- EXPORT LOGIC (PNG & PDF) ---
+        async function exportData(format) {
+            const start = document.getElementById('filter-start').value;
+            const end = document.getElementById('filter-end').value;
+            
+            if (format === 'excel') {
+                const ws = XLSX.utils.json_to_sheet(transactions.map(t => ({
+                    Tanggal: t.date,
+                    Jenis: t.type,
+                    Uraian: t.desc,
+                    Masuk: t.type === 'Masuk' ? t.amount : 0,
+                    Keluar: t.type === 'Keluar' ? t.amount : 0
+                })));
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Laporan");
+                XLSX.writeFile(wb, `Laporan_${settings.instansi}.xlsx`);
+                return;
+            }
+
+            const container = document.getElementById('print-container');
+            
+            let totMasuk = 0, totKeluar = 0;
+            let filtered = transactions.filter(t => {
+                return (!start || t.date >= start) && (!end || t.date <= end);
+            }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            filtered.forEach(t => {
+                if (t.type === 'Masuk') totMasuk += t.amount; else totKeluar += t.amount;
+            });
+
+            const todayStr = new Date().toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' });
+            
+            let tableRows = '';
+            let bal = 0;
+            if (start) {
+                 transactions.forEach(t => { if(t.date < start) bal += (t.type==='Masuk'?t.amount:-t.amount); });
+            }
+            
+            filtered.forEach((t, i) => {
+                if(t.type==='Masuk') bal+=t.amount; else bal-=t.amount;
+                tableRows += `
+                    <tr style="border-bottom: 1px solid #ccc;">
+                        <td style="padding: 8px; text-align:center;">${i+1}</td>
+                        <td style="padding: 8px;">${formatDateIndo(t.date)}</td>
+                        <td style="padding: 8px;">${t.desc}</td>
+                        <td style="padding: 8px; text-align:right;">${t.type==='Masuk'?formatRupiah(t.amount):'-'}</td>
+                        <td style="padding: 8px; text-align:right;">${t.type==='Keluar'?formatRupiah(t.amount):'-'}</td>
+                        <td style="padding: 8px; text-align:right;">${formatRupiah(bal)}</td>
+                    </tr>
+                `;
+            });
+
+            const ttdKetuaImg = settings.ttd_ketua ? `<img src="${settings.ttd_ketua}" style="height:60px; display:block; margin:0 auto;">` : '<div style="height:60px;"></div>';
+            const ttdBendaharaImg = settings.ttd_bendahara ? `<img src="${settings.ttd_bendahara}" style="height:60px; display:block; margin:0 auto;">` : '<div style="height:60px;"></div>';
+
+            container.innerHTML = `
+                <div style="font-family: serif; color: #000;">
+                    <div style="text-align: center; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 20px;">
+                        <h1 style="font-size: 24px; margin: 0; text-transform: uppercase;">${settings.instansi}</h1>
+                        <p style="margin: 5px 0 0 0;">Laporan Keuangan Periode: ${start || 'Awal'} s/d ${end || 'Sekarang'}</p>
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">
+                        <thead>
+                            <tr style="background-color: #eee; border-top: 1px solid #000; border-bottom: 1px solid #000;">
+                                <th style="padding: 8px; text-align:center;">No</th>
+                                <th style="padding: 8px; text-align:left;">Tanggal</th>
+                                <th style="padding: 8px; text-align:left;">Uraian</th>
+                                <th style="padding: 8px; text-align:right;">Pemasukan</th>
+                                <th style="padding: 8px; text-align:right;">Pengeluaran</th>
+                                <th style="padding: 8px; text-align:right;">Saldo</th>
+                            </tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+
+                    <div style="float: right; width: 40%; font-size: 13px; margin-bottom: 40px;">
+                        <div style="display:flex; justify-content:space-between;"><strong>Total Pemasukan:</strong> <span>${formatRupiah(totMasuk)}</span></div>
+                        <div style="display:flex; justify-content:space-between;"><strong>Total Pengeluaran:</strong> <span>${formatRupiah(totKeluar)}</span></div>
+                        <div style="display:flex; justify-content:space-between; border-top: 1px solid #000; padding-top:4px; margin-top:4px;"><strong>Sisa Saldo:</strong> <span>${formatRupiah(bal)}</span></div>
+                    </div>
+                    <div style="clear:both;"></div>
+
+                    <div style="display: flex; justify-content: space-between; margin-top: 30px; padding: 0 20px;">
+                        <div style="text-align: center; width: 200px;">
+                            <p>Mengetahui,</p>
+                            <p>Ketua</p>
+                            ${ttdKetuaImg}
+                            <p style="text-decoration: underline; font-weight: bold; margin-top: 5px;">${settings.ketua || '....................'}</p>
+                        </div>
+                        <div style="text-align: center; width: 200px;">
+                            <p>${settings.tempat}, ${formatDateIndo(new Date().toISOString().split('T')[0])}</p>
+                            <p>Bendahara</p>
+                            ${ttdBendaharaImg}
+                            <p style="text-decoration: underline; font-weight: bold; margin-top: 5px;">${settings.bendahara || '....................'}</p>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 50px; font-size: 10px; color: #555; border-top: 1px solid #ccc; padding-top: 5px;">
+                        Generated by Bendahara Pintar | ${todayStr}
+                    </div>
+                </div>
+            `;
+
+            setTimeout(async () => {
+                const canvas = await html2canvas(container, { scale: 2 });
+                
+                if (format === 'png') {
+                    const link = document.createElement('a');
+                    link.download = `Laporan_${Date.now()}.png`;
+                    link.href = canvas.toDataURL();
+                    link.click();
+                } else {
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const imgData = canvas.toDataURL('image/png');
+                    const imgProps = pdf.getImageProperties(imgData);
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                    pdf.save(`Laporan_${Date.now()}.pdf`);
+                }
+            }, 500);
+        }
+
+        // --- SETTINGS & SIGNATURE PAD ---
+        function initSignaturePads() {
+            padKetua = document.getElementById('pad-ketua');
+            padBendahara = document.getElementById('pad-bendahara');
+            
+            // ERROR PREVENTION: Only attach if elements exist
+            if (!padKetua || !padBendahara) return;
+
+            function attachListeners(canvas) {
+                const ctx = canvas.getContext('2d');
+                let isDrawing = false;
+
+                function getPos(e) {
+                    const rect = canvas.getBoundingClientRect();
+                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    return { x: clientX - rect.left, y: clientY - rect.top };
+                }
+
+                function start(e) {
+                    isDrawing = true;
+                    ctx.beginPath();
+                    const pos = getPos(e);
+                    ctx.moveTo(pos.x, pos.y);
+                    e.preventDefault();
+                }
+
+                function draw(e) {
+                    if (!isDrawing) return;
+                    const pos = getPos(e);
+                    ctx.lineWidth = 2;
+                    ctx.lineCap = 'round';
+                    ctx.strokeStyle = '#000';
+                    ctx.lineTo(pos.x, pos.y);
+                    ctx.stroke();
+                    e.preventDefault();
+                }
+
+                function stop() { isDrawing = false; }
+
+                canvas.addEventListener('mousedown', start);
+                canvas.addEventListener('mousemove', draw);
+                canvas.addEventListener('mouseup', stop);
+                canvas.addEventListener('touchstart', start);
+                canvas.addEventListener('touchmove', draw);
+                canvas.addEventListener('touchend', stop);
+            }
+
+            attachListeners(padKetua);
+            attachListeners(padBendahara);
+        }
+
+        function resizeSignaturePads() {
+            [padKetua, padBendahara].forEach(canvas => {
+                if (!canvas) return; // Guard
+                const dataUrl = canvas.toDataURL();
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+            });
+        }
+
+        function clearPad(role) {
+            const pad = role === 'ketua' ? padKetua : padBendahara;
+            if (!pad) return; // Guard
+            const ctx = pad.getContext('2d');
+            ctx.clearRect(0, 0, pad.width, pad.height);
+        }
+
+        function loadSettingsForm() {
+            document.getElementById('set-instansi').value = settings.instansi;
+            document.getElementById('set-tempat').value = settings.tempat;
+            document.getElementById('set-ketua').value = settings.ketua;
+            document.getElementById('set-bendahara').value = settings.bendahara;
+            document.getElementById('set-webapp-url').value = settings.webapp_url || '';
+            // Fields for changing username/pass are left empty by default
+        }
+
+        function saveSettings() {
+            // Check if user wants to change credentials
+            const newParamsUser = document.getElementById('set-username').value;
+            const newParamsPass = document.getElementById('set-password').value;
+            
+            if (newParamsUser) settings.username = newParamsUser;
+            if (newParamsPass) settings.password = newParamsPass;
+
+            settings.instansi = document.getElementById('set-instansi').value;
+            settings.tempat = document.getElementById('set-tempat').value;
+            settings.ketua = document.getElementById('set-ketua').value;
+            settings.bendahara = document.getElementById('set-bendahara').value;
+            settings.webapp_url = document.getElementById('set-webapp-url').value;
+
+            if (padKetua && !isCanvasBlank(padKetua)) settings.ttd_ketua = padKetua.toDataURL();
+            if (padBendahara && !isCanvasBlank(padBendahara)) settings.ttd_bendahara = padBendahara.toDataURL();
+
+            saveSettingsToStorage();
+        }
+
+        // --- GOOGLE SHEET SYNC (SMART SYNC) ---
+        // isManual = true (from Button, with alerts), false (from auto trigger, silent)
+        async function syncToGoogleSheet(isManual = true) {
+            // 1. Determine URL
+            let url = settings.webapp_url;
+            
+            // If manual, try to get from input if settings is empty (edge case in settings menu)
+            if (isManual) {
+                const inputUrl = document.getElementById('set-webapp-url');
+                if (inputUrl && inputUrl.value) url = inputUrl.value;
+            }
+
+            // Guard: If no URL and not manual, just exit silently
+            if(!url) {
+                if (isManual) alert('Mohon isi URL Web App terlebih dahulu dan SIMPAN PENGATURAN.');
+                return;
+            }
+
+            // 2. Prepare Data
+            const sortedTx = [...transactions].sort((a,b) => new Date(a.date) - new Date(b.date));
+
+            let balance = 0;
+            const rows = sortedTx.map((t, index) => {
+                const masuk = t.type === 'Masuk' ? t.amount : 0;
+                const keluar = t.type === 'Keluar' ? t.amount : 0;
+                balance += (masuk - keluar);
+                return [
+                    index + 1, // No
+                    "'" + t.date, // Tanggal (string)
+                    t.desc, // Uraian
+                    masuk, // Masuk
+                    keluar, // Keluar
+                    balance // Saldo
+                ];
+            });
+
+            const payload = {
+                rows: rows,
+                meta: {
+                    instansi: settings.instansi,
+                    syncTime: new Date().toISOString()
+                }
+            };
+
+            // 3. UI Feedback (Manual only)
+            let btn;
+            let originalText;
+            if (isManual) {
+                btn = document.querySelector('button[onclick="syncToGoogleSheet(true)"]');
+                if(btn) {
+                    originalText = btn.innerHTML;
+                    btn.innerHTML = 'Mengirim...';
+                    btn.disabled = true;
+                }
+            } else {
+                console.log("Auto-syncing to Google Sheet...");
+            }
+
+            // 4. Send
+            try {
+                await fetch(url, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (isManual) alert('Sinkronisasi terkirim! Periksa Google Sheet Anda.');
+                else console.log("Auto-sync completed.");
+                
+            } catch (err) {
+                console.error(err);
+                if (isManual) alert('Gagal mengirim data. Pastikan URL benar.');
+            } finally {
+                if (isManual && btn) {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            }
+        }
+
+        // --- ARCHIVE / GALLERY ---
+        function renderGallery() {
+            const container = document.getElementById('gallery-container');
+            container.innerHTML = '';
+            
+            const withProof = transactions.filter(t => t.proof);
+            
+            if (withProof.length === 0) {
+                document.getElementById('gallery-empty').classList.remove('hidden');
+                return;
+            } else {
+                document.getElementById('gallery-empty').classList.add('hidden');
+            }
+
+            withProof.forEach(t => {
+                const div = document.createElement('div');
+                div.className = "relative group aspect-square bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600 cursor-pointer";
+                // On click, open lightbox
+                div.onclick = (e) => {
+                    // Prevent download/delete buttons from triggering lightbox
+                    if(e.target.closest('a') || e.target.closest('button')) return;
+                    openLightbox(t.proof, `${t.date} - ${t.desc}`);
+                };
+                
+                div.innerHTML = `
+                    <img src="${t.proof}" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex flex-col justify-between p-2">
+                        <div class="flex justify-between items-start">
+                            <a href="${t.proof}" download="bukti_${t.date}_${t.id}.jpg" class="bg-white/20 hover:bg-white/40 text-white p-1.5 rounded-full backdrop-blur-sm transition z-10" title="Download Bukti">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                            </a>
+                            <button onclick="deleteTransaction(${t.id})" class="bg-red-500/80 hover:bg-red-600 text-white p-1.5 rounded-full backdrop-blur-sm transition z-10" title="Hapus">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <div class="pointer-events-none">
+                            <p class="text-white text-xs font-bold">${t.date}</p>
+                            <p class="text-white text-[10px] truncate">${t.desc}</p>
+                            <div class="mt-1 flex items-center gap-1 text-[10px] text-slate-200">
+                                <i data-lucide="eye" class="w-3 h-3"></i> Klik untuk perbesar
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        // --- BACKUP & RESTORE ---
+        function backupData() {
+            const data = { transactions, settings };
+            const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup_bendahara_${Date.now()}.json`;
+            a.click();
+        }
+
+        function importData(input) {
+            const file = input.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if(data.transactions && data.settings) {
+                        transactions = data.transactions;
+                        settings = data.settings;
+                        saveData();
+                        saveSettingsToStorage();
+                        alert('Data berhasil dipulihkan!');
+                        location.reload();
+                    } else {
+                        alert('Format file salah');
+                    }
+                } catch(err) { alert('Gagal membaca file'); }
+            };
+            reader.readAsText(file);
+        }
+
+        function resetData() {
+            if(confirm('YAKIN HAPUS SEMUA DATA? Tindakan ini tidak bisa dibatalkan.')) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        // --- UTILS ---
+        function formatRupiah(num) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(num);
+        }
+
+        function formatDateIndo(dateStr) {
+            if(!dateStr) return "-";
+            const date = new Date(dateStr);
+            return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+        }
+
+        function isCanvasBlank(canvas) {
+            const context = canvas.getContext('2d');
+            const pixelBuffer = new Uint32Array(
+                context.getImageData(0, 0, canvas.width, canvas.height).data.buffer
+            );
+            return !pixelBuffer.some(color => color !== 0);
+        }
+
+        function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const elem = document.createElement('canvas');
+                        const width = 800;
+                        const scaleFactor = width / img.width;
+                        elem.width = width;
+                        elem.height = img.height * scaleFactor;
+                        const ctx = elem.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, img.height * scaleFactor);
+                        resolve(elem.toDataURL('image/jpeg', 0.7)); 
+                    }
+                }
+                reader.onerror = error => reject(error);
+            });
+        }
+        
+        function refreshApp() { location.reload(); }
+
+    </script>
+</body>
+</html>
