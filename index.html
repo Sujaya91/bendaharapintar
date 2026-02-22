@@ -381,9 +381,27 @@
                         <div class="grid grid-cols-1 gap-4">
                             <input type="text" id="set-instansi" placeholder="Nama Instansi" class="input-field w-full p-2 border dark:border-slate-600 rounded bg-transparent dark:text-white">
                             <input type="text" id="set-tempat" placeholder="Tempat (Kota)" class="input-field w-full p-2 border dark:border-slate-600 rounded bg-transparent dark:text-white">
+                            
                             <div class="grid grid-cols-2 gap-4">
-                                <input type="text" id="set-ketua" placeholder="Nama Ketua" class="input-field w-full p-2 border dark:border-slate-600 rounded bg-transparent dark:text-white">
-                                <input type="text" id="set-bendahara" placeholder="Nama Bendahara" class="input-field w-full p-2 border dark:border-slate-600 rounded bg-transparent dark:text-white">
+                                <div>
+                                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Jabatan Pimpinan</label>
+                                    <input type="text" id="set-jabatan-ketua" placeholder="Misal: Ketua / Kepala Sekolah" class="input-field w-full p-2 border dark:border-slate-600 rounded bg-transparent dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Nama Lengkap</label>
+                                    <input type="text" id="set-ketua" placeholder="Nama Pimpinan" class="input-field w-full p-2 border dark:border-slate-600 rounded bg-transparent dark:text-white">
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Jabatan Keuangan</label>
+                                    <input type="text" id="set-jabatan-bendahara" placeholder="Misal: Bendahara Umum" class="input-field w-full p-2 border dark:border-slate-600 rounded bg-transparent dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Nama Lengkap</label>
+                                    <input type="text" id="set-bendahara" placeholder="Nama Bendahara" class="input-field w-full p-2 border dark:border-slate-600 rounded bg-transparent dark:text-white">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -394,7 +412,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <!-- Ketua -->
                             <div class="space-y-2">
-                                <p class="text-sm font-semibold dark:text-slate-300">TTD Ketua</p>
+                                <p class="text-sm font-semibold dark:text-slate-300">TTD Pimpinan</p>
                                 <canvas id="pad-ketua" class="signature-pad w-full h-32"></canvas>
                                 <div class="flex gap-2">
                                     <button onclick="clearPad('ketua')" class="text-xs bg-slate-200 dark:bg-slate-700 dark:text-slate-300 px-2 py-1 rounded">Hapus</button>
@@ -402,7 +420,7 @@
                             </div>
                             <!-- Bendahara -->
                             <div class="space-y-2">
-                                <p class="text-sm font-semibold dark:text-slate-300">TTD Bendahara</p>
+                                <p class="text-sm font-semibold dark:text-slate-300">TTD Keuangan</p>
                                 <canvas id="pad-bendahara" class="signature-pad w-full h-32"></canvas>
                                 <div class="flex gap-2">
                                     <button onclick="clearPad('bendahara')" class="text-xs bg-slate-200 dark:bg-slate-700 dark:text-slate-300 px-2 py-1 rounded">Hapus</button>
@@ -528,13 +546,15 @@ function doPost(e) {
         let transactions = [];
         let editingId = null; 
         
-        // Default settings include username/password
+        // Default settings include username/password and titles
         let settings = {
             username: 'admin',
             password: 'admin',
             instansi: 'Organisasi Pemuda',
             tempat: 'Jakarta',
+            jabatan_ketua: 'Ketua',
             ketua: '',
+            jabatan_bendahara: 'Bendahara',
             bendahara: '',
             ttd_ketua: null,
             ttd_bendahara: null,
@@ -1008,6 +1028,10 @@ function doPost(e) {
 
             const ttdKetuaImg = settings.ttd_ketua ? `<img src="${settings.ttd_ketua}" style="height:60px; display:block; margin:0 auto;">` : '<div style="height:60px;"></div>';
             const ttdBendaharaImg = settings.ttd_bendahara ? `<img src="${settings.ttd_bendahara}" style="height:60px; display:block; margin:0 auto;">` : '<div style="height:60px;"></div>';
+            
+            // Resolve dynamic titles
+            const jabatanKetua = settings.jabatan_ketua || 'Ketua';
+            const jabatanBendahara = settings.jabatan_bendahara || 'Bendahara';
 
             container.innerHTML = `
                 <div style="font-family: serif; color: #000;">
@@ -1040,13 +1064,13 @@ function doPost(e) {
                     <div style="display: flex; justify-content: space-between; margin-top: 30px; padding: 0 20px;">
                         <div style="text-align: center; width: 200px;">
                             <p>Mengetahui,</p>
-                            <p>Ketua</p>
+                            <p>${jabatanKetua}</p>
                             ${ttdKetuaImg}
                             <p style="text-decoration: underline; font-weight: bold; margin-top: 5px;">${settings.ketua || '....................'}</p>
                         </div>
                         <div style="text-align: center; width: 200px;">
                             <p>${settings.tempat}, ${formatDateIndo(new Date().toISOString().split('T')[0])}</p>
-                            <p>Bendahara</p>
+                            <p>${jabatanBendahara}</p>
                             ${ttdBendaharaImg}
                             <p style="text-decoration: underline; font-weight: bold; margin-top: 5px;">${settings.bendahara || '....................'}</p>
                         </div>
@@ -1168,8 +1192,13 @@ function doPost(e) {
         function loadSettingsForm() {
             document.getElementById('set-instansi').value = settings.instansi;
             document.getElementById('set-tempat').value = settings.tempat;
+            
+            document.getElementById('set-jabatan-ketua').value = settings.jabatan_ketua || 'Ketua';
             document.getElementById('set-ketua').value = settings.ketua;
+            
+            document.getElementById('set-jabatan-bendahara').value = settings.jabatan_bendahara || 'Bendahara';
             document.getElementById('set-bendahara').value = settings.bendahara;
+            
             document.getElementById('set-webapp-url').value = settings.webapp_url || '';
             // Fields for changing username/pass are left empty by default
         }
@@ -1184,8 +1213,13 @@ function doPost(e) {
 
             settings.instansi = document.getElementById('set-instansi').value;
             settings.tempat = document.getElementById('set-tempat').value;
+            
+            settings.jabatan_ketua = document.getElementById('set-jabatan-ketua').value || 'Ketua';
             settings.ketua = document.getElementById('set-ketua').value;
+            
+            settings.jabatan_bendahara = document.getElementById('set-jabatan-bendahara').value || 'Bendahara';
             settings.bendahara = document.getElementById('set-bendahara').value;
+            
             settings.webapp_url = document.getElementById('set-webapp-url').value;
 
             if (padKetua && !isCanvasBlank(padKetua)) settings.ttd_ketua = padKetua.toDataURL();
