@@ -1062,18 +1062,36 @@ function doPost(e) {
                 const canvas = await html2canvas(container, { scale: 2 });
                 
                 if (format === 'png') {
+                    // Untuk PNG, hasil otomatis menjadi gambar memanjang yang memuat semua data (tidak terpotong)
                     const link = document.createElement('a');
                     link.download = `Laporan_${Date.now()}.png`;
-                    link.href = canvas.toDataURL();
+                    link.href = canvas.toDataURL('image/png');
                     link.click();
                 } else {
                     const { jsPDF } = window.jspdf;
                     const pdf = new jsPDF('p', 'mm', 'a4');
                     const imgData = canvas.toDataURL('image/png');
                     const imgProps = pdf.getImageProperties(imgData);
+                    
                     const pdfWidth = pdf.internal.pageSize.getWidth();
-                    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-                    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                    const pdfPageHeight = pdf.internal.pageSize.getHeight();
+                    const totalImgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                    
+                    let heightLeft = totalImgHeight;
+                    let position = 0;
+
+                    // Tambahkan halaman pertama
+                    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, totalImgHeight);
+                    heightLeft -= pdfPageHeight;
+
+                    // Logika Pagination: Jika tinggi konten bersisa, otomatis tambah lembar A4 baru
+                    while (heightLeft > 0) {
+                        position = position - pdfPageHeight;
+                        pdf.addPage();
+                        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, totalImgHeight);
+                        heightLeft -= pdfPageHeight;
+                    }
+
                     pdf.save(`Laporan_${Date.now()}.pdf`);
                 }
             }, 500);
