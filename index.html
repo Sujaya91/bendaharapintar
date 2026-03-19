@@ -1086,11 +1086,44 @@ function doPost(e) {
                 const canvas = await html2canvas(container, { scale: 2 });
                 
                 if (format === 'png') {
-                    // Untuk PNG, hasil otomatis menjadi gambar memanjang yang memuat semua data (tidak terpotong)
-                    const link = document.createElement('a');
-                    link.download = `Laporan_${Date.now()}.png`;
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
+                    // Memisahkan gambar memanjang menjadi beberapa file PNG seukuran A4
+                    const a4Ratio = 297 / 210;
+                    const pageHeightPx = Math.floor(canvas.width * a4Ratio);
+                    const totalPages = Math.ceil(canvas.height / pageHeightPx);
+
+                    const downloadPage = (pageNum, yOffset) => {
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = canvas.width;
+                        tempCanvas.height = pageHeightPx; // Memaksa rasio A4
+                        const ctx = tempCanvas.getContext('2d');
+                        
+                        // Isi background putih
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                        
+                        // Gambar potongan dari canvas utama
+                        const sourceHeight = Math.min(pageHeightPx, canvas.height - yOffset);
+                        ctx.drawImage(canvas, 0, yOffset, canvas.width, sourceHeight, 0, 0, canvas.width, sourceHeight);
+                        
+                        const link = document.createElement('a');
+                        link.download = totalPages > 1 ? `Laporan_${Date.now()}_Hal_${pageNum}.png` : `Laporan_${Date.now()}.png`;
+                        link.href = tempCanvas.toDataURL('image/png');
+                        link.click();
+                    };
+
+                    let currentPage = 1;
+                    let currentY = 0;
+                    
+                    // Gunakan interval agar browser tidak memblokir download massal (multiple files)
+                    const downloadInterval = setInterval(() => {
+                        downloadPage(currentPage, currentY);
+                        currentPage++;
+                        currentY += pageHeightPx;
+                        
+                        if (currentPage > totalPages) {
+                            clearInterval(downloadInterval);
+                        }
+                    }, 500); // Jeda 500ms tiap halaman
                 } else {
                     const { jsPDF } = window.jspdf;
                     const pdf = new jsPDF('p', 'mm', 'a4');
