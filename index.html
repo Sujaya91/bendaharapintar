@@ -1306,12 +1306,19 @@ function doPost(e) {
             // If manual, try to get from input if settings is empty (edge case in settings menu)
             if (isManual) {
                 const inputUrl = document.getElementById('set-webapp-url');
-                if (inputUrl && inputUrl.value) url = inputUrl.value;
+                if (inputUrl && inputUrl.value) {
+                    url = inputUrl.value;
+                    // Auto-simpan URL ke pengaturan agar tidak perlu klik Simpan berulang kali
+                    if (settings.webapp_url !== url) {
+                        settings.webapp_url = url;
+                        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+                    }
+                }
             }
 
             // Guard: If no URL and not manual, just exit silently
             if(!url) {
-                if (isManual) alert('Mohon isi URL Web App terlebih dahulu dan SIMPAN PENGATURAN.');
+                if (isManual) alert('Mohon isi URL Web App terlebih dahulu.');
                 return;
             }
 
