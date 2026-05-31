@@ -459,20 +459,31 @@ function doPost(e) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var data = JSON.parse(e.postData.contents);
   
-  // Reset Sheet & Set Header Lengkap
-  sheet.clear();
-  var headers = ["No", "Tanggal", "Uraian", "Masuk", "Keluar", "Saldo"];
-  sheet.appendRow(headers);
-  // Format Header Bold
-  sheet.getRange(1, 1, 1, 6).setFontWeight("bold").setBackground("#f3f4f6");
-  
-  // Format Data
   if (data.rows && data.rows.length > 0) {
-    // Batch Insert (Lebih Cepat)
+    // 1. Cek & Buat Header jika sheet masih kosong
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow(["No", "Tanggal", "Uraian", "Masuk", "Keluar", "Saldo"]);
+      sheet.getRange(1, 1, 1, 6).setFontWeight("bold").setBackground("#f3f4f6");
+    }
+    
+    // 2. Bersihkan HANYA isi data lama (Baris 2 ke bawah)
+    // Format, warna, dan Kop Header tetap aman!
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      sheet.getRange(2, 1, lastRow - 1, 6).clearContent();
+    }
+    
+    // 3. Masukkan semua data terbaru secara berurutan & presisi
     sheet.getRange(2, 1, data.rows.length, 6).setValues(data.rows);
+  } else if (data.rows && data.rows.length === 0) {
+    // Jika semua data dihapus dari aplikasi, kosongkan sheet
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      sheet.getRange(2, 1, lastRow - 1, 6).clearContent();
+    }
   }
   
-  return ContentService.createTextOutput(JSON.stringify({status: "success", count: data.rows.length}))
+  return ContentService.createTextOutput(JSON.stringify({status: "success"}))
     .setMimeType(ContentService.MimeType.JSON);
 }
                                 </textarea>
