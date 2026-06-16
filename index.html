@@ -274,7 +274,7 @@
 
                             <div>
                                 <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Nominal (Rp)</label>
-                                <input type="text" inputmode="numeric" id="inp-amount" required placeholder="0" oninput="formatInputRupiah(this)" class="w-full p-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/50 font-mono text-lg dark:text-white transition-colors">
+                                <input type="number" id="inp-amount" required min="1" placeholder="0" class="w-full p-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/50 font-mono text-lg dark:text-white transition-colors">
                             </div>
 
                             <div>
@@ -459,31 +459,20 @@ function doPost(e) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var data = JSON.parse(e.postData.contents);
   
+  // Reset Sheet & Set Header Lengkap
+  sheet.clear();
+  var headers = ["No", "Tanggal", "Uraian", "Masuk", "Keluar", "Saldo"];
+  sheet.appendRow(headers);
+  // Format Header Bold
+  sheet.getRange(1, 1, 1, 6).setFontWeight("bold").setBackground("#f3f4f6");
+  
+  // Format Data
   if (data.rows && data.rows.length > 0) {
-    // 1. Cek & Buat Header jika sheet masih kosong
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow(["No", "Tanggal", "Uraian", "Masuk", "Keluar", "Saldo"]);
-      sheet.getRange(1, 1, 1, 6).setFontWeight("bold").setBackground("#f3f4f6");
-    }
-    
-    // 2. Bersihkan HANYA isi data lama (Baris 2 ke bawah)
-    // Format, warna, dan Kop Header tetap aman!
-    var lastRow = sheet.getLastRow();
-    if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, 6).clearContent();
-    }
-    
-    // 3. Masukkan semua data terbaru secara berurutan & presisi
+    // Batch Insert (Lebih Cepat)
     sheet.getRange(2, 1, data.rows.length, 6).setValues(data.rows);
-  } else if (data.rows && data.rows.length === 0) {
-    // Jika semua data dihapus dari aplikasi, kosongkan sheet
-    var lastRow = sheet.getLastRow();
-    if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, 6).clearContent();
-    }
   }
   
-  return ContentService.createTextOutput(JSON.stringify({status: "success"}))
+  return ContentService.createTextOutput(JSON.stringify({status: "success", count: data.rows.length}))
     .setMimeType(ContentService.MimeType.JSON);
 }
                                 </textarea>
@@ -737,7 +726,7 @@ function doPost(e) {
             editingId = id;
             document.getElementById('inp-date').value = tx.date;
             document.getElementById('inp-desc').value = tx.desc;
-            document.getElementById('inp-amount').value = new Intl.NumberFormat('id-ID').format(tx.amount);
+            document.getElementById('inp-amount').value = tx.amount;
             
             const radios = document.getElementsByName('type');
             radios.forEach(r => {
@@ -795,11 +784,7 @@ function doPost(e) {
             const date = document.getElementById('inp-date').value;
             const type = document.querySelector('input[name="type"]:checked').value;
             const desc = document.getElementById('inp-desc').value;
-            
-            // Bersihkan format titik untuk mendapatkan angka murni
-            const rawAmount = document.getElementById('inp-amount').value.replace(/\D/g, '');
-            const amount = parseFloat(rawAmount);
-            
+            const amount = parseFloat(document.getElementById('inp-amount').value);
             const fileInput = document.getElementById('inp-proof');
             
             let proofImage = null;
@@ -1491,17 +1476,6 @@ function doPost(e) {
         }
 
         // --- UTILS ---
-        function formatInputRupiah(input) {
-            // Hapus karakter selain angka
-            let value = input.value.replace(/\D/g, '');
-            if (value) {
-                // Tambahkan titik pemisah ribuan otomatis
-                input.value = new Intl.NumberFormat('id-ID').format(value);
-            } else {
-                input.value = '';
-            }
-        }
-
         function formatRupiah(num) {
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(num);
         }
